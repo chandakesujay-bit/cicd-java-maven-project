@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build and SonarQube Scan
+    name: Build and SonarCloud Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -19,29 +19,20 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Java (NO CACHE to avoid 400 error)
+      # 2️⃣ Setup Java (NO cache to avoid errors)
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
-          cache: none
 
-      # 3️⃣ Build project (this creates the ARTIFACT)
+      # 3️⃣ Build Maven artifact (JAR)
       - name: Build artifact using Maven
         run: mvn clean package -DskipTests
 
-      # 4️⃣ Run SonarQube / SonarCloud Scan (SAST)
-      - name: SonarQube Scan
+      # 4️⃣ Run SonarCloud Scan (SAST + Quality Gate)
+      - name: SonarCloud Scan
         run: mvn sonar:sonar \
           -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
           -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
-          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-      # 5️⃣ Upload build artifact (for CD / debugging)
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: java-artifact
-          path: target/*.jar
+          -Dsonar.host.url=${
