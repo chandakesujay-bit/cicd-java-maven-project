@@ -1,0 +1,41 @@
+name: CD Pipeline - Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline - Build & SAST"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Decide target environment
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to EC2 via SSH (Docker)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull yourdockerhub/yourapp:latest
+            docker stop app || true
+            docker rm app || true
+            docker run -d --name app -p 8080:8080 yourdockerhub/yourapp:latest
+
+      - name: Health check (CT)
+        run: |
+          sleep 20
+          curl -f http://${{ secrets.EC2_HOST }}:8080 || exit 1
+
+      - name: Notify
+        run: echo "Deployment to $ENV successful ✅"
