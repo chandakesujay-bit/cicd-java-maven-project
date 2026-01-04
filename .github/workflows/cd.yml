@@ -1,4 +1,4 @@
-name: CD Pipeline - Deploy to EC2 (Linux)
+name: CD Pipeline - Deploy to EC2 (Linux, No Docker)
 
 on:
   workflow_run:
@@ -12,15 +12,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout source code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ Setup Java 11
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      # 3️⃣ Build artifact (IMPORTANT – fixes empty archive issue)
+      - name: Build project
+        run: mvn clean package -DskipTests
+
+      # 4️⃣ Copy JAR to EC2
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "target/*.jar"
-          target: "/home/ec2-user/app"
+          source: "target/helloworld-0.0.1-SNAPSHOT.jar"
+          target: "/home/ubuntu/app"
 
+      # 5️⃣ Start application on EC2
       - name: Start application on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -29,4 +46,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             pkill -f java || true
-            nohup java -jar /home/ec2-user/app/*.jar > app.log 2>&1 &
+            nohup java -jar /home/ubuntu/app/helloworld-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+
+      # 6️⃣ Health Check (CT)
+      - name: Health check
+        run: |
+          sleep 20
+          curl -f http://${{ secrets.EC2_HOST }}:8080
