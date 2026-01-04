@@ -1,4 +1,4 @@
-name: CD Pipeline - Deploy
+name: CD Pipeline - Deploy to EC2 (Linux)
 
 on:
   workflow_run:
@@ -12,30 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Decide target environment
-        run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "ENV=prod" >> $GITHUB_ENV
-          else
-            echo "ENV=dev" >> $GITHUB_ENV
-          fi
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "target/*.jar"
+          target: "/home/ec2-user/app"
 
-      - name: Deploy to EC2 via SSH (Docker)
+      - name: Start application on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            docker pull yourdockerhub/yourapp:latest
-            docker stop app || true
-            docker rm app || true
-            docker run -d --name app -p 8080:8080 yourdockerhub/yourapp:latest
-
-      - name: Health check (CT)
-        run: |
-          sleep 20
-          curl -f http://${{ secrets.EC2_HOST }}:8080 || exit 1
-
-      - name: Notify
-        run: echo "Deployment to $ENV successful ✅"
+            pkill -f java || true
+            nohup java -jar /home/ec2-user/app/*.jar > app.log 2>&1 &
