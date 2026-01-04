@@ -15,26 +15,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout source code
+      # 1️⃣ Checkout code
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Java (NO cache to avoid errors)
+      # 2️⃣ Setup Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
 
-      # 3️⃣ Build Maven artifact (JAR)
+      # 3️⃣ Build Maven project (ARTIFACT)
       - name: Build artifact using Maven
         run: mvn clean package -DskipTests
 
-      # 4️⃣ Run SonarCloud Scan (SAST + Quality Gate)
+      # 4️⃣ SonarCloud Scan (SAST + Quality Gate)
       - name: SonarCloud Scan
-        run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+        uses: sonarsource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+
+      # 5️⃣ Upload artifact
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-artifact
+          path: target/*.jar
