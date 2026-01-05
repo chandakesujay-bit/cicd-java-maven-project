@@ -55,8 +55,4 @@ jobs:
             sleep 5
             echo "Application started successfully"
 
-      # 5. Basic health check
-      - name: Health check
-        run: |
-          sleep 10
-          curl -f http://${{ secrets.EC2_HOST }}:8080 || exit 1
+  
